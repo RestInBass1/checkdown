@@ -1,0 +1,56 @@
+syntax = "proto3";
+option go_package = "checkdown/pkg/api";
+package db;
+
+// Подключаем пустое сообщение для RPC без тела
+import "google/protobuf/empty.proto";import "google/protobuf/timestamp.proto";
+
+
+// Служба CRUD‑операций над задачами
+service DBService {
+  // Создать новую задачу
+  rpc AddTask(TaskRequest) returns (CreateTaskResponse);
+  // Получить список всех задач
+  rpc GetTasks(google.protobuf.Empty) returns (GetTasksResponse);
+  // Удалить задачу по ID
+  rpc DeleteTask(TaskIdRequest) returns (DeleteTaskResponse);
+  // Пометить задачу как выполненную
+  rpc MarkDoneTask(TaskIdRequest) returns (DeleteTaskResponse);
+}
+
+// Входные данные для создания или обновления задачи
+message TaskRequest {
+  string title       = 1;
+  string description = 2;
+}
+
+// Запрос, содержащий только ID задачи
+message TaskIdRequest {
+  int64 id = 1;
+}
+
+// Ответ при создании задачи: новый ID и, при ошибке, сообщение
+message CreateTaskResponse {
+  int64  id    = 1;
+  string error = 2;
+}
+
+// Описание одной задачи
+message Task {
+  int64  id          = 1;
+  string title       = 2;
+  string description = 3;
+  string   is_done     = 4;
+  google.protobuf.Timestamp created_at  = 5; // ISO‑строка или timestamp
+  google.protobuf.Timestamp updated_at  = 6;
+}
+
+// Ответ со списком задач (и возможной ошибкой)
+message GetTasksResponse {
+  repeated Task tasks = 1;
+  string   error     = 2;
+}
+
+message DeleteTaskResponse{
+  string error = 1;
+}
