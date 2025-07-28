@@ -12,5 +12,14 @@ services:
     ports:
       - "5471:5432"
     restart: always
+  api_service:
+    build: ./apiService
+    env_file:
+      - .env
+    depends_on:
+      - bd-service-postgres
+    ports:
+      - "8080:8080"
+
 volumes:
   postgres_data:
