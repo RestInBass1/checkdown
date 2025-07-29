@@ -1,10 +1,9 @@
 package httpHandlers
 
 import (
+	"checkdown/apiService/internal/pkg/logger"
 	"net/http"
 	"time"
-
-	"checkdown/common/logger"
 )
 
 func Logging(next http.Handler) http.Handler {

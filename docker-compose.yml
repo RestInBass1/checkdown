@@ -1,8 +1,12 @@
+version: '3.8'
+
 services:
   postgres:
     image: postgres:15
+    # берем настройки пользователя/базы из dbService/.env
     env_file:
-      - .env
+      - ./dbService/.env
+    # эти environment можно опустить, они дублируют env_file
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -18,7 +22,9 @@ services:
       context: ./dbService
       dockerfile: Dockerfile
     env_file:
-      - .env
+      - ./dbService/.env
+    # dbService/.env должен содержать:
+    # POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, POSTGRES_HOST=postgres, POSTGRES_PORT=5432, GRPC_PORT=50051
     depends_on:
       - postgres
     ports:
@@ -30,9 +36,10 @@ services:
       context: ./apiService
       dockerfile: Dockerfile
     env_file:
-      - .env
+      - ./apiService/.env
+    # apiService/.env должен содержать:
+    # GRPC_ADDR=db_service:50051, HTTP_PORT=8080
     depends_on:
-      - postgres
       - db_service
     ports:
       - "8080:8080"

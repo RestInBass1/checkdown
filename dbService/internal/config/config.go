@@ -1,7 +1,7 @@
 package config
 
 import (
-	"checkdown/common/logger"
+	"checkdown/dbService/internal/pkg/logger"
 	"checkdown/dbService/internal/repository"
 
 	"github.com/ilyakaznacheev/cleanenv"

@@ -1,8 +1,8 @@
 package grpcadapter
 
 import (
+	"checkdown/apiService/internal/pkg/logger"
 	"checkdown/apiService/internal/usecase"
-	"checkdown/common/logger"
 	"checkdown/dbService/pkg/api"
 	"context"
 	"google.golang.org/protobuf/types/known/emptypb"

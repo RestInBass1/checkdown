@@ -1,22 +1,31 @@
-# ---------- build stage ----------
+# syntax=docker/dockerfile:1
+
 FROM golang:1.24-alpine AS builder
 WORKDIR /src
 
-# 1) копируем только манифест (go.mod/go.sum) модуля apiService
-COPY go.mod go.sum ./
-WORKDIR /src/apiService
-RUN go mod download
+# 1) Копируем манифесты и вендор
+COPY go.mod go.sum vendor/ ./
 
-# 2) копируем исходники именно apiService
+# 2) Копируем весь исходный код
 COPY . .
 
-# 3) собираем бинарь
-RUN CGO_ENABLED=0 GOOS=linux go build -o /bin/apiService ./cmd
+# 3) Собираем с флагом -mod=vendor (не нужна сеть и внешний доступ)
+RUN CGO_ENABLED=0 \
+    GOOS=linux \
+    GOARCH=amd64 \
+    go build -mod=vendor -o apiService ./cmd
 
-# ---------- runtime stage ----------
+# ── Runtime Stage ────────────────────────────────────────────────────────────
 FROM alpine:3.19
 WORKDIR /app
-COPY --from=builder /bin/apiService .
+
+# Копируем бинарь
+COPY --from=builder /src/apiService ./
+
+# Копируем локальный .env (если нужно)
+COPY .env ./.env
 
 EXPOSE 8080
-ENTRYPOINT ["/app/apiService"]
+ENTRYPOINT ["./apiService"]
+
+

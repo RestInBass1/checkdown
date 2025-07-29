@@ -1,11 +1,11 @@
 package repository
 
 import (
+	"checkdown/dbService/internal/pkg/logger"
 	"context"
 	"fmt"
 	"time"
 
-	"checkdown/common/logger"
 	dto "checkdown/dbService/internal/DTO" // поправил регистр пакета
 	"github.com/jackc/pgx/v5/pgxpool"
 )

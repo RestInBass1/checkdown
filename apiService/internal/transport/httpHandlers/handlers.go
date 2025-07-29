@@ -1,8 +1,8 @@
 package httpHandlers
 
 import (
+	"checkdown/apiService/internal/pkg/logger"
 	"checkdown/apiService/internal/usecase"
-	"checkdown/common/logger"
 	"encoding/json"
 	"github.com/go-chi/chi/v5"
 	"net/http"

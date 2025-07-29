@@ -1,7 +1,7 @@
 package server
 
 import (
-	"checkdown/common/logger"
+	"checkdown/apiService/internal/pkg/logger"
 	"context"
 	"net/http"
 	"time"

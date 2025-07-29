@@ -3,10 +3,10 @@ package main
 import (
 	grpcadapter "checkdown/apiService/internal/adapter/grpc"
 	"checkdown/apiService/internal/config"
+	"checkdown/apiService/internal/pkg/logger"
 	"checkdown/apiService/internal/server"
 	"checkdown/apiService/internal/transport/httpHandlers"
 	"checkdown/dbService/pkg/api"
-	"checkdown/internal/pkg/logger"
 	"google.golang.org/grpc"
 	"net/http"
 	"os"

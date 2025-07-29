@@ -1,7 +1,7 @@
 package config
 
 import (
-	"checkdown/common/logger"
+	"checkdown/apiService/internal/pkg/logger"
 	"github.com/ilyakaznacheev/cleanenv"
 )
 

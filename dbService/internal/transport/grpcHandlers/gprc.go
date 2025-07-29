@@ -1,10 +1,10 @@
 package grpcHandlers
 
 import (
+	"checkdown/dbService/internal/pkg/logger"
 	"context"
 	"time"
 
-	"checkdown/common/logger"
 	dto "checkdown/dbService/internal/DTO"
 	api2 "checkdown/dbService/pkg/api"
 

@@ -1,13 +1,13 @@
 package server
 
 import (
+	"checkdown/dbService/internal/pkg/logger"
 	"context"
 	"errors"
 	"fmt"
 	"net"
 	"time"
 
-	"checkdown/common/logger"
 	dto "checkdown/dbService/internal/DTO"
 	"checkdown/dbService/internal/config"
 	"checkdown/dbService/internal/transport/grpcHandlers"

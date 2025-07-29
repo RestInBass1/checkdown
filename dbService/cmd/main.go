@@ -1,13 +1,13 @@
 package main
 
 import (
+	"checkdown/dbService/internal/pkg/logger"
 	"context"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"checkdown/common/logger" // общий логгер
 	"checkdown/dbService/internal/config"
 	"checkdown/dbService/internal/repository"
 	"checkdown/dbService/internal/server"
