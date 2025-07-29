@@ -1,10 +1,15 @@
 package grpcHandlers
 
 import (
-	"checkdown/dbService/internal/DTO"
-	api2 "checkdown/dbService/pkg/api"
 	"context"
+	"time"
+
+	"checkdown/common/logger"
+	dto "checkdown/dbService/internal/DTO"
+	api2 "checkdown/dbService/pkg/api"
+
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type PostgresRepository interface {
@@ -23,50 +28,107 @@ func NewDBService(repo PostgresRepository) *DBService {
 	return &DBService{repo: repo}
 }
 
-func (s *DBService) AddTask(ctx context.Context, task_r *api2.TaskRequest) (*api2.CreateTaskResponse, error) {
-	task := dto.Task{
-		Title:       task_r.Title,
-		Description: task_r.Description,
-	}
-	id, err := s.repo.CreateTask(ctx, task)
+func (s *DBService) AddTask(ctx context.Context, req *api2.TaskRequest) (*api2.CreateTaskResponse, error) {
+	start := time.Now()
+	logger.Log.Debugw("RPC AddTask start",
+		"title", req.Title,
+		"description", req.Description,
+	)
+
+	id, err := s.repo.CreateTask(ctx, dto.Task{
+		Title:       req.Title,
+		Description: req.Description,
+	})
 	if err != nil {
+		logger.Log.Errorw("RPC AddTask error",
+			"error", err,
+			"duration_ms", time.Since(start).Milliseconds(),
+		)
 		return nil, err
 	}
-	createdTask := &api2.CreateTaskResponse{
-		Id:    int64(id),
-		Error: err.Error(),
-	}
-	return createdTask, nil
+
+	logger.Log.Infow("RPC AddTask success",
+		"id", id,
+		"duration_ms", time.Since(start).Milliseconds(),
+	)
+	return &api2.CreateTaskResponse{Id: int64(id)}, nil
 }
-func (s *DBService) GetTasks(context.Context, *emptypb.Empty) (*api2.GetTasksResponse, error) {
-	tasks, err := s.repo.GetTasks(context.Background())
+
+func (s *DBService) GetTasks(ctx context.Context, _ *emptypb.Empty) (*api2.GetTasksResponse, error) {
+	start := time.Now()
+	logger.Log.Debugw("RPC GetTasks start")
+
+	tasks, err := s.repo.GetTasks(ctx)
 	if err != nil {
+		logger.Log.Errorw("RPC GetTasks error",
+			"error", err,
+			"duration_ms", time.Since(start).Milliseconds(),
+		)
 		return nil, err
 	}
-	resp := &api2.GetTasksResponse{}
-	for _, task := range tasks {
+
+	resp := &api2.GetTasksResponse{Tasks: make([]*api2.Task, 0, len(tasks))}
+	for _, t := range tasks {
 		resp.Tasks = append(resp.Tasks, &api2.Task{
-			Title:       task.Title,
-			Description: task.Description,
+			Id:          int64(t.ID),
+			Title:       t.Title,
+			Description: t.Description,
+			// конвертация bool→string, как в твоём proto
+			IsDone:    t.IsDone,
+			CreatedAt: timestamppb.New(t.CreatedAt),
+			UpdatedAt: timestamppb.New(t.UpdatedAt),
 		})
 	}
+
+	logger.Log.Infow("RPC GetTasks success",
+		"count", len(resp.Tasks),
+		"duration_ms", time.Since(start).Milliseconds(),
+	)
 	return resp, nil
 }
-func (s *DBService) DeleteTask(ctx context.Context, id *api2.TaskIdRequest) (*api2.DeleteTaskResponse, error) {
-	err := s.repo.DeleteTask(ctx, id.Id)
+
+func (s *DBService) DeleteTask(ctx context.Context, req *api2.TaskIdRequest) (*api2.DeleteTaskResponse, error) {
+	start := time.Now()
+	logger.Log.Debugw("RPC DeleteTask start",
+		"id", req.Id,
+	)
+
+	err := s.repo.DeleteTask(ctx, req.Id)
 	if err != nil {
+		logger.Log.Errorw("RPC DeleteTask error",
+			"id", req.Id,
+			"error", err,
+			"duration_ms", time.Since(start).Milliseconds(),
+		)
 		return nil, err
 	}
-	return &api2.DeleteTaskResponse{
-		Error: err.Error(),
-	}, nil
+
+	logger.Log.Infow("RPC DeleteTask success",
+		"id", req.Id,
+		"duration_ms", time.Since(start).Milliseconds(),
+	)
+	return &api2.DeleteTaskResponse{}, nil
 }
-func (s *DBService) MarkDoneTask(ctx context.Context, id *api2.TaskIdRequest) (*api2.DeleteTaskResponse, error) {
-	err := s.repo.UpdateTask(ctx, id.Id)
+
+func (s *DBService) MarkDoneTask(ctx context.Context, req *api2.TaskIdRequest) (*api2.DeleteTaskResponse, error) {
+	start := time.Now()
+	logger.Log.Debugw("RPC MarkDoneTask start",
+		"id", req.Id,
+	)
+
+	err := s.repo.UpdateTask(ctx, req.Id)
 	if err != nil {
+		logger.Log.Errorw("RPC MarkDoneTask error",
+			"id", req.Id,
+			"error", err,
+			"duration_ms", time.Since(start).Milliseconds(),
+		)
 		return nil, err
 	}
-	return &api2.DeleteTaskResponse{
-		Error: err.Error(),
-	}, nil
+
+	logger.Log.Infow("RPC MarkDoneTask success",
+		"id", req.Id,
+		"duration_ms", time.Since(start).Milliseconds(),
+	)
+	return &api2.DeleteTaskResponse{}, nil
 }

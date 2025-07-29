@@ -1,38 +1,51 @@
 package main
 
 import (
-	"checkdown/dbService/internal/config"
-	"checkdown/dbService/internal/repository"
-	"checkdown/dbService/internal/server"
 	"context"
-	"log"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"checkdown/common/logger" // общий логгер
+	"checkdown/dbService/internal/config"
+	"checkdown/dbService/internal/repository"
+	"checkdown/dbService/internal/server"
 )
 
 func main() {
+	// ── конфиг + инициализация логгера ───────────────────────────────────
+	cfg := config.LoadConfig() // внутри уже вызван logger.Init()
+	defer logger.Log.Sync()    // flush перед выходом
+
 	ctx := context.Background()
-	cfg := config.LoadConfig()
+
+	// ── инициализируем хранилище ─────────────────────────────────────────
 	storage, err := repository.NewStorage(ctx, cfg.POSTGRESCONFIG)
 	if err != nil {
-		log.Fatal(err)
-	}
-	server, err := server.NewServer(ctx, cfg, storage)
-	if err != nil {
-		log.Fatal(err)
+		logger.Log.Fatalw("storage init failed", "err", err)
 	}
 
-	doneChan := make(chan os.Signal)
-	signal.Notify(doneChan, syscall.SIGINT, syscall.SIGTERM)
+	// ── поднимаем gRPC‑сервер ────────────────────────────────────────────
+	srv, err := server.NewServer(ctx, cfg, storage)
+	if err != nil {
+		logger.Log.Fatalw("server init failed", "err", err)
+	}
 
 	go func() {
-		err = server.Start()
-		if err != nil {
-			log.Fatalf("failed to start server: %v", err)
+		if err := srv.Start(); err != nil {
+			logger.Log.Fatalw("grpc server error", "err", err)
 		}
 	}()
-	<-doneChan
-	server.Stop()
 
+	addr := fmt.Sprintf(":%d", cfg.GRPCPORT)
+	logger.Log.Infow("grpc server started", "addr", addr)
+
+	// ── ловим SIGINT / SIGTERM ───────────────────────────────────────────
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+	<-stop
+
+	logger.Log.Infow("shutting down grpc server")
+	srv.Stop()
 }

@@ -2,6 +2,7 @@ package httpHandlers
 
 import (
 	"checkdown/apiService/internal/usecase"
+	"checkdown/common/logger"
 	"encoding/json"
 	"github.com/go-chi/chi/v5"
 	"net/http"
@@ -37,6 +38,7 @@ func New(svc usecase.TaskService) *Handler { return &Handler{svc} }
 
 func (h *Handler) NewRouter() http.Handler {
 	r := chi.NewRouter()
+	r.Use(Logging)
 	r.Route("/", func(r chi.Router) {
 		r.Post("/", h.create)
 		r.Get("/", h.list)
@@ -49,13 +51,16 @@ func (h *Handler) NewRouter() http.Handler {
 func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	var in createReq
 	_ = json.NewDecoder(r.Body).Decode(&in)
+	logger.Log.Debugw("create request", "title", in.Title)
 	id, err := h.svc.Create(r.Context(), usecase.Task{
 		Title:       in.Title,
 		Description: in.Description,
 	})
 	if err != nil {
+		logger.Log.Errorw("create task failed", "err", err)
 		writeJSON(w, http.StatusInternalServerError, err)
 	}
+	logger.Log.Infow("task created", "id", id)
 	writeJSON(w, http.StatusCreated, createResp{id})
 }
 

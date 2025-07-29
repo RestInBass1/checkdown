@@ -1,11 +1,9 @@
 package server
 
 import (
+	"checkdown/common/logger"
 	"context"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 )
 
@@ -25,17 +23,25 @@ func New(addr string, handler http.Handler) *HTTPServer {
 	}
 }
 
+// Start запускает HTTP‑сервер (блокирующий вызов).
 func (s *HTTPServer) Start() error {
-	// graceful shutdown
-	go func() {
-		quit := make(chan os.Signal, 1)
-		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-		<-quit
+	logger.Log.Infow("http ListenAndServe", "addr", s.srv.Addr)
+	err := s.srv.ListenAndServe()
+	if err != nil && err != http.ErrServerClosed {
+		logger.Log.Errorw("http server stopped with error", "err", err)
+	} else {
+		logger.Log.Infow("http server stopped")
+	}
+	return err
+}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = s.srv.Shutdown(ctx)
-	}()
+// Stop завершает работу сервера с таймаутом 5 секунд.
+func (s *HTTPServer) Stop() {
+	logger.Log.Infow("shutting down http server")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	return s.srv.ListenAndServe()
+	if err := s.srv.Shutdown(ctx); err != nil {
+		logger.Log.Errorw("server shutdown error", "err", err)
+	}
 }

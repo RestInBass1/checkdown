@@ -2,6 +2,7 @@ package grpcadapter
 
 import (
 	"checkdown/apiService/internal/usecase"
+	"checkdown/common/logger"
 	"checkdown/dbService/pkg/api"
 	"context"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -18,13 +19,16 @@ func New(c api.DBServiceClient) usecase.TaskService {
 }
 
 func (s *service) Create(ctx context.Context, t usecase.Task) (int64, error) {
+	logger.Log.Debugw("grpc call AddTask", "title", t.Title)
 	resp, err := s.c.AddTask(ctx, &api.TaskRequest{
 		Title:       t.Title,
 		Description: t.Description,
 	})
 	if err != nil {
+		logger.Log.Errorw("AddTask failed", "err", err)
 		return 0, err // ошибка сети, таймаута и проч.
 	}
+	logger.Log.Infow("task created via gRPC", "id", resp.Id)
 	return resp.Id, nil // вернули сгенерированный id
 }
 func (s *service) List(ctx context.Context) ([]usecase.Task, error) {
@@ -47,6 +51,11 @@ func (s *service) List(ctx context.Context) ([]usecase.Task, error) {
 
 func (s *service) Delete(ctx context.Context, id int64) error {
 	_, err := s.c.DeleteTask(ctx, &api.TaskIdRequest{Id: id})
+	if err != nil {
+		logger.Log.Errorw("DeleteTask failed", "id", id, "err", err)
+	} else {
+		logger.Log.Infow("task deleted", "id", id)
+	}
 	return err
 }
 

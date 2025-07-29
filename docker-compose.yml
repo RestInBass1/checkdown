@@ -1,5 +1,5 @@
 services:
-  bd-service-postgres:
+  postgres:
     image: postgres:15
     env_file:
       - .env
@@ -12,14 +12,31 @@ services:
     ports:
       - "5471:5432"
     restart: always
-  api_service:
-    build: ./apiService
+
+  db_service:
+    build:
+      context: ./dbService
+      dockerfile: Dockerfile
     env_file:
       - .env
     depends_on:
-      - bd-service-postgres
+      - postgres
+    ports:
+      - "50051:50051"
+    restart: on-failure
+
+  api_service:
+    build:
+      context: ./apiService
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - db_service
     ports:
       - "8080:8080"
+    restart: on-failure
 
 volumes:
   postgres_data:

@@ -1,14 +1,20 @@
 package server
 
 import (
-	"checkdown/dbService/internal/DTO"
+	"context"
+	"errors"
+	"fmt"
+	"net"
+	"time"
+
+	"checkdown/common/logger"
+	dto "checkdown/dbService/internal/DTO"
 	"checkdown/dbService/internal/config"
 	"checkdown/dbService/internal/transport/grpcHandlers"
-	"checkdown/dbService/pkg/api"
-	"context"
-	"fmt"
+	pb "checkdown/dbService/pkg/api"
+
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"google.golang.org/grpc"
-	"net"
 )
 
 type PostgresRepository interface {
@@ -17,31 +23,55 @@ type PostgresRepository interface {
 	UpdateTask(ctx context.Context, id int64) error
 	DeleteTask(ctx context.Context, id int64) error
 }
+
 type Server struct {
-	grpcServer   *grpc.Server
-	grpcListener net.Listener
+	srv  *grpc.Server
+	addr string
 }
 
+// NewServer собирает gRPC‑сервер, регистрирует имплементацию и возвращает обёртку.
 func NewServer(ctx context.Context, cfg *config.Config, repo PostgresRepository) (*Server, error) {
-	gRPCaddr := fmt.Sprintf(":%d", cfg.GRPCPORT)
-	grpcListener, err := net.Listen("tcp", gRPCaddr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to listen on %s: %w", gRPCaddr, err)
-	}
-	opts := []grpc.ServerOption{}
-	grpcSrv := grpc.NewServer(opts...)
-	dbservice := grpcHandlers.NewDBService(repo)
-	api.RegisterDBServiceServer(grpcSrv, dbservice)
-	return &Server{
-		grpcServer:   grpcSrv,
-		grpcListener: grpcListener,
-	}, nil
+	addr := fmt.Sprintf(":%d", cfg.GRPCPORT)
+
+	// zap‑интерсептор для автоматического логирования RPC‑вызовов
+	zapInter := grpc_zap.UnaryServerInterceptor(logger.Log.Desugar())
+	s := grpc.NewServer(grpc.UnaryInterceptor(zapInter))
+
+	// регистрируем сгенерированный gRPC‑сервис
+	pb.RegisterDBServiceServer(s, grpcHandlers.NewDBService(repo))
+
+	return &Server{srv: s, addr: addr}, nil
 }
 
+// Start запускает gRPC‑сервер (блокирующий вызов).
 func (s *Server) Start() error {
-	return s.grpcServer.Serve(s.grpcListener)
+	lis, err := net.Listen("tcp", s.addr)
+	if err != nil {
+		return fmt.Errorf("listen %s: %w", s.addr, err)
+	}
+	logger.Log.Infow("grpc listen", "addr", s.addr)
+
+	if err := s.srv.Serve(lis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
+		logger.Log.Errorw("grpc serve error", "err", err)
+		return err
+	}
+	logger.Log.Infow("grpc server stopped")
+	return nil
 }
 
+// Stop завершает работу сервера корректно, с таймаутом на graceful shutdown.
 func (s *Server) Stop() {
-	s.grpcServer.GracefulStop()
+	logger.Log.Infow("grpc graceful stop")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	go func() { // fallback: принудительная остановка
+		<-ctx.Done()
+		if ctx.Err() == context.DeadlineExceeded {
+			logger.Log.Errorw("grpc stop timeout — forcing stop")
+			s.srv.Stop()
+		}
+	}()
+
+	s.srv.GracefulStop()
 }

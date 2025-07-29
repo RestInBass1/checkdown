@@ -6,21 +6,39 @@ import (
 	"checkdown/apiService/internal/server"
 	"checkdown/apiService/internal/transport/httpHandlers"
 	"checkdown/dbService/pkg/api"
+	"checkdown/internal/pkg/logger"
 	"google.golang.org/grpc"
-	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"strconv"
+	"syscall"
 )
 
 func main() {
 	cfg := config.LoadConfig()
-	conn, err := grpc.Dial(
-		cfg.GRPCAddr)
+	conn, err := grpc.Dial(cfg.GRPCAddr, grpc.WithInsecure())
 	if err != nil {
-		log.Fatalf("did not connect: %v", err)
+		logger.Log.Fatalw("grpc dial failed", "addr", cfg.GRPCAddr, "err", err)
 	}
 	defer conn.Close()
+	logger.Log.Infow("grpc connected", "addr", cfg.GRPCAddr)
 	dbClient := api.NewDBServiceClient(conn)
 	taskSvc := grpcadapter.New(dbClient)
 	h := httpHandlers.New(taskSvc)
-	server := server.New(cfg.GRPCAddr, h.NewRouter())
-	server.Start()
+	srv := server.New(":"+strconv.Itoa(cfg.HTTPPort), h.NewRouter())
+
+	// запускаем server.Start() в отдельной горутине
+	go func() {
+		if err := srv.Start(); err != nil && err != http.ErrServerClosed {
+			logger.Log.Fatalw("http server error", "err", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit // ждём Ctrl‑C или SIGTERM от Kubernetes
+
+	srv.Stop() // корректно гасим HTTP‑сервер
+
 }
