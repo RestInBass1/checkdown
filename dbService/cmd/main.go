@@ -1,22 +1,33 @@
 package main
 
 import (
+	//"checkdown/dbService/internal/pkg/logger"
+	//"context"
+	//"fmt"
+	//"os"
+	//"os/signal"
+	//"syscall"
+	//
+	//"checkdown/dbService/internal/config"
+	//"checkdown/dbService/internal/repository"
+	//"checkdown/dbService/internal/server"
+	"checkdown/dbService/internal/config"
 	"checkdown/dbService/internal/pkg/logger"
+	"checkdown/dbService/internal/repository"
+	"checkdown/dbService/internal/server"
 	"context"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
-
-	"checkdown/dbService/internal/config"
-	"checkdown/dbService/internal/repository"
-	"checkdown/dbService/internal/server"
 )
 
 func main() {
 	// ── конфиг + инициализация логгера ───────────────────────────────────
-	cfg := config.LoadConfig() // внутри уже вызван logger.Init()
-	defer logger.Log.Sync()    // flush перед выходом
+	cfg := config.LoadConfig()
+	fmt.Printf("%#v\n", cfg)
+	//внутри уже вызван logger.Init()
+	defer logger.Log.Sync() // flush перед выходом
 
 	ctx := context.Background()
 

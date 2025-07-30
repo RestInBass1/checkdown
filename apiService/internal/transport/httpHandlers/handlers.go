@@ -39,7 +39,7 @@ func New(svc usecase.TaskService) *Handler { return &Handler{svc} }
 func (h *Handler) NewRouter() http.Handler {
 	r := chi.NewRouter()
 	r.Use(Logging)
-	r.Route("/", func(r chi.Router) {
+	r.Route("/tasks", func(r chi.Router) {
 		r.Post("/", h.create)
 		r.Get("/", h.list)
 		r.Put("/{id}/done", h.done)
