@@ -24,13 +24,19 @@ type PostgresRepository interface {
 	DeleteTask(ctx context.Context, id int64) error
 }
 
+type RedisRepository interface {
+	GetTasks(ctx context.Context) ([]*dto.Task, error)
+	SetTasks(ctx context.Context, tasks []*dto.Task) error
+	DeleteTasks(ctx context.Context) error
+}
+
 type Server struct {
 	srv  *grpc.Server
 	addr string
 }
 
 // NewServer собирает gRPC‑сервер, регистрирует имплементацию и возвращает обёртку.
-func NewServer(ctx context.Context, cfg *config.Config, repo PostgresRepository) (*Server, error) {
+func NewServer(ctx context.Context, cfg *config.Config, repo PostgresRepository, repoRedis RedisRepository) (*Server, error) {
 	addr := fmt.Sprintf(":%d", cfg.GRPCPORT)
 
 	// zap‑интерсептор для автоматического логирования RPC‑вызовов
@@ -38,7 +44,7 @@ func NewServer(ctx context.Context, cfg *config.Config, repo PostgresRepository)
 	s := grpc.NewServer(grpc.UnaryInterceptor(zapInter))
 
 	// регистрируем сгенерированный gRPC‑сервис
-	pb.RegisterDBServiceServer(s, grpcHandlers.NewDBService(repo))
+	pb.RegisterDBServiceServer(s, grpcHandlers.NewDBService(repo, repoRedis))
 
 	return &Server{srv: s, addr: addr}, nil
 }

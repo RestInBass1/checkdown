@@ -13,8 +13,8 @@ type Config struct {
 	POSTGRESCONFIG repository.Config
 
 	// gRPC
-	GRPCPORT int `env:"GRPC_PORT" env-default:"50051"`
-
+	GRPCPORT    int `env:"GRPC_PORT" env-default:"50051"`
+	REDISCONFIG repository.RedisConfig
 	// логирование
 	LogLevel string `env:"LOG_LEVEL" env-default:"info"`
 	Env      string `env:"ENV" env-default:"local"`

@@ -3,10 +3,10 @@ package dto
 import "time"
 
 type Task struct {
-	ID          int
-	Title       string
-	Description string
-	IsDone      string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID          int       `json:"id"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	IsDone      string    `json:"isDone"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
 }

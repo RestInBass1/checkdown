@@ -3,6 +3,7 @@ package grpcHandlers
 import (
 	"checkdown/dbService/internal/pkg/logger"
 	"context"
+	"github.com/redis/go-redis/v9"
 	"time"
 
 	dto "checkdown/dbService/internal/DTO"
@@ -19,13 +20,23 @@ type PostgresRepository interface {
 	DeleteTask(ctx context.Context, id int64) error
 }
 
-type DBService struct {
-	api2.UnimplementedDBServiceServer
-	repo PostgresRepository
+type RedisRepository interface {
+	GetTasks(ctx context.Context) ([]*dto.Task, error)
+	SetTasks(ctx context.Context, tasks []*dto.Task) error
+	DeleteTasks(ctx context.Context) error
 }
 
-func NewDBService(repo PostgresRepository) *DBService {
-	return &DBService{repo: repo}
+type DBService struct {
+	api2.UnimplementedDBServiceServer
+	repo      PostgresRepository
+	repoRedis RedisRepository
+}
+
+func NewDBService(repo PostgresRepository, repoRed RedisRepository) *DBService {
+	return &DBService{
+		repo:      repo,
+		repoRedis: repoRed,
+	}
 }
 
 func (s *DBService) AddTask(ctx context.Context, req *api2.TaskRequest) (*api2.CreateTaskResponse, error) {
@@ -46,7 +57,7 @@ func (s *DBService) AddTask(ctx context.Context, req *api2.TaskRequest) (*api2.C
 		)
 		return nil, err
 	}
-
+	_ = s.repoRedis.DeleteTasks(ctx)
 	logger.Log.Infow("RPC AddTask success",
 		"id", id,
 		"duration_ms", time.Since(start).Milliseconds(),
@@ -58,17 +69,52 @@ func (s *DBService) GetTasks(ctx context.Context, _ *emptypb.Empty) (*api2.GetTa
 	start := time.Now()
 	logger.Log.Debugw("RPC GetTasks start")
 
-	tasks, err := s.repo.GetTasks(ctx)
-	if err != nil {
-		logger.Log.Errorw("RPC GetTasks error",
-			"error", err,
+	tasks, err := s.repoRedis.GetTasks(ctx)
+	if err == redis.Nil {
+		logger.Log.Debugw("RPC GetTasks redis error")
+		bro, err := s.repo.GetTasks(ctx)
+		if err != nil {
+			logger.Log.Errorw("RPC GetTasks postgres error",
+				"error", err,
+				"duration_ms", time.Since(start).Milliseconds(),
+			)
+			return nil, err
+		}
+		logger.Log.Infow("RPC GetTasks success")
+		err = s.repoRedis.SetTasks(ctx, bro)
+		if err != nil {
+			logger.Log.Debugw("RPC GetTasks redis error")
+			return nil, err
+		}
+		logger.Log.Infow("RPC GetTasks  redis set success")
+		resp := &api2.GetTasksResponse{Tasks: make([]*api2.Task, 0, len(bro))}
+		for _, t := range bro {
+			if t == nil {
+				continue
+			}
+			resp.Tasks = append(resp.Tasks, &api2.Task{
+				Id:          int64(t.ID),
+				Title:       t.Title,
+				Description: t.Description,
+				// конвертация bool→string, как в твоём proto
+				IsDone:    t.IsDone,
+				CreatedAt: timestamppb.New(t.CreatedAt),
+				UpdatedAt: timestamppb.New(t.UpdatedAt),
+			})
+		}
+
+		logger.Log.Infow("RPC GetTasks success",
+			"count", len(resp.Tasks),
 			"duration_ms", time.Since(start).Milliseconds(),
 		)
-		return nil, err
+		return resp, nil
 	}
 
 	resp := &api2.GetTasksResponse{Tasks: make([]*api2.Task, 0, len(tasks))}
 	for _, t := range tasks {
+		if t == nil {
+			continue
+		}
 		resp.Tasks = append(resp.Tasks, &api2.Task{
 			Id:          int64(t.ID),
 			Title:       t.Title,
@@ -102,7 +148,7 @@ func (s *DBService) DeleteTask(ctx context.Context, req *api2.TaskIdRequest) (*a
 		)
 		return nil, err
 	}
-
+	_ = s.repoRedis.DeleteTasks(ctx)
 	logger.Log.Infow("RPC DeleteTask success",
 		"id", req.Id,
 		"duration_ms", time.Since(start).Milliseconds(),
@@ -125,7 +171,7 @@ func (s *DBService) MarkDoneTask(ctx context.Context, req *api2.TaskIdRequest) (
 		)
 		return nil, err
 	}
-
+	_ = s.repoRedis.DeleteTasks(ctx)
 	logger.Log.Infow("RPC MarkDoneTask success",
 		"id", req.Id,
 		"duration_ms", time.Since(start).Milliseconds(),

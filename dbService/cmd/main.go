@@ -1,16 +1,6 @@
 package main
 
 import (
-	//"checkdown/dbService/internal/pkg/logger"
-	//"context"
-	//"fmt"
-	//"os"
-	//"os/signal"
-	//"syscall"
-	//
-	//"checkdown/dbService/internal/config"
-	//"checkdown/dbService/internal/repository"
-	//"checkdown/dbService/internal/server"
 	"checkdown/dbService/internal/config"
 	"checkdown/dbService/internal/pkg/logger"
 	"checkdown/dbService/internal/repository"
@@ -36,9 +26,10 @@ func main() {
 	if err != nil {
 		logger.Log.Fatalw("storage init failed", "err", err)
 	}
-
+	redisClient := repository.NewRedis(cfg.REDISCONFIG)
+	repoRedis := repository.NewRedisRepository(redisClient, cfg.REDISCONFIG.TTL)
 	// ── поднимаем gRPC‑сервер ────────────────────────────────────────────
-	srv, err := server.NewServer(ctx, cfg, storage)
+	srv, err := server.NewServer(ctx, cfg, storage, repoRedis)
 	if err != nil {
 		logger.Log.Fatalw("server init failed", "err", err)
 	}
