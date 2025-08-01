@@ -3,6 +3,7 @@ package main
 import (
 	grpcadapter "checkdown/apiService/internal/adapter/grpc"
 	"checkdown/apiService/internal/config"
+	"checkdown/apiService/internal/kafka"
 	"checkdown/apiService/internal/pkg/logger"
 	"checkdown/apiService/internal/server"
 	"checkdown/apiService/internal/transport/httpHandlers"
@@ -24,7 +25,13 @@ func main() {
 	defer conn.Close()
 	logger.Log.Infow("grpc connected", "addr", cfg.GRPCAddr)
 	dbClient := api.NewDBServiceClient(conn)
-	taskSvc := grpcadapter.New(dbClient)
+	brokers := []string{cfg.KafkaAddr}
+	prod, err := kafka.NewProducer(brokers, cfg.KafkaTopic)
+	if err != nil {
+		logger.Log.Fatalw("new producer failed", "err", err)
+	}
+	defer prod.Close()
+	taskSvc := grpcadapter.New(dbClient, prod)
 	h := httpHandlers.New(taskSvc)
 	srv := server.New(":"+strconv.Itoa(cfg.HTTPPort), h.NewRouter())
 

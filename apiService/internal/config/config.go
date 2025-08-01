@@ -9,6 +9,9 @@ type Config struct {
 	GRPCAddr string `env:"GRPCAddr" env-required:"true"`
 	HTTPPort int    `env:"HTTP_PORT" env-default:"8080"`
 
+	KafkaAddr  string `env:"KAFKA_ADDR" env-required:"true"` // например "kafka:9092"
+	KafkaTopic string `env:"KafkaTopic" env-required:"true"` // например "events"
+
 	// параметры логов
 	LogLevel string `env:"LOG_LEVEL" env-default:"info"`
 	Env      string `env:"ENV" env-default:"local"`
